@@ -25,7 +25,7 @@ def clean_description(description):
     words = description.split()
     email = re.compile('[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}', re.IGNORECASE)
     for i, word in enumerate(words):
-        if 'http:' in string.lower(word):
+        if 'https?:' in string.lower(word):
             words[i] = '' # remove links
         elif re.search(email, word):
             words[i] = '' # remove emails
@@ -49,15 +49,15 @@ def isNotEnglish(desc):
     if re.search(u'[\u30A0-\u30FF]', desc): return True
     if re.search(u'[\uFF00-\uFF9F]', desc): return True
     if re.search(u'[\u4E00-\u9FAF]', desc): return True
-    
+
     # Chinese characters
     if re.search(u'[\u4E00-\u9FFF]', desc): return True
     if re.search(u'[\u3400-\u4DFF]', desc): return True
     if re.search(u'[\uF900-\uFAFF]', desc): return True
-    
+
     # Korean characters
     if re.search(u'[\uAC00-\uD7AF]', desc): return True
-    
+
     return False
 
 def get_user_bios(twitter, most_recent):
@@ -78,7 +78,7 @@ def get_user_bios(twitter, most_recent):
                 continue # avoid non-english
             elif len(desc) > 20:
                 bios.append(desc)
-    
+
     if found_last:
         # new bios that haven't been tweeted
         print(str(len(bios)) + " new bios found")
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     twitter = connectTwitter()
     most_recent = get_last_tweet(twitter)
     bios = []
-    
+
     # main loop
     while True:
         try:
