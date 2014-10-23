@@ -7,6 +7,7 @@ import re
 import string
 import sys
 import time
+import Levenshtein
 from twython import Twython
 
 def connectTwitter():
@@ -23,22 +24,31 @@ def get_last_tweet(twitter):
 
 def clean_description(description):
     words = description.split()
+    link = re.compile('https?:', re.IGNORECASE)
     email = re.compile('[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}', re.IGNORECASE)
+    phone = re.compile('[\d-]{7,}')
+    hashtags = re.compile('[@#]')
     for i, word in enumerate(words):
-        if 'https?:' in string.lower(word):
+        if re.search(link, word):
             words[i] = '' # remove links
         elif re.search(email, word):
             words[i] = '' # remove emails
-        elif re.search('[\d-]{10}', word):
+        elif re.search(phone, word):
             words[i] = '' # remove phone numbers
         else:
             # remove hashtags and @-mentions
-            words[i] = re.compile('[@#]').sub('', word)
+            words[i] = hashtags.sub('', word)
     words = filter(None, words)
     new_desc = string.join(words, ' ')
     if (len(new_desc) > 140):
         new_desc = new_desc[:137] + '...'
     return new_desc
+
+def isTooSimilar(desc, bios):
+    for bio in bios:
+        if Levenshtein.ratio(desc, bio) > 0.5:
+            return True
+    return False
 
 def isNotEnglish(desc):
     # Cyrillic characters
@@ -58,6 +68,9 @@ def isNotEnglish(desc):
     # Korean characters
     if re.search(u'[\uAC00-\uD7AF]', desc): return True
 
+    # Arabic characters
+    if re.search(u'[\u0600-\u06FF]', desc): return True
+
     return False
 
 def get_user_bios(twitter, most_recent):
@@ -72,10 +85,14 @@ def get_user_bios(twitter, most_recent):
         elif found_last:
             if user['protected'] or not user['verified']:
                 continue # respect privacy
+            elif blacklist.isOffensive(user['name']):
+                continue # no bad words in user name
             elif blacklist.isOffensive(desc):
-                continue # no bad words
+                continue # no bad words in description
             elif not 'en' in user['lang'] or isNotEnglish(desc):
                 continue # avoid non-english
+            elif isTooSimilar(desc, bios):
+                continue # avoid repeating
             elif len(desc) > 20:
                 bios.append(desc)
 
