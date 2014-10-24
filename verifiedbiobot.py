@@ -3,6 +3,7 @@
 import blacklist
 import config
 import datetime
+import random
 import re
 import string
 import sys
@@ -16,10 +17,12 @@ def connectTwitter():
 
 def get_recent_tweets(twitter):
     # get the bio most recently tweeted by this bot
-    timeline = twitter.get_user_timeline(screen_name = config.bot_name, count=50)
+    timeline = twitter.get_user_timeline(screen_name = config.bot_name,
+        count=200, exclude_replies=True, include_rts=False)
     recent = []
     for tweet in timeline:
         recent.append(tweet['text'])
+    print(str(len(recent)) + ' recent tweets found')
     return recent
 
 def clean_description(description):
@@ -73,41 +76,28 @@ def isNotEnglish(desc):
 
     return False
 
-def get_user_bios(twitter, recent):
-    result = twitter.get_friends_list(screen_name='verified', skip_status=True,
-                                        include_user_entities=False, count=200)
-    bios = []
-    found_last = len(recent) == 0
+def get_user_bios(twitter, bios, recent):
+    result = twitter.get_friends_list(screen_name='verified',
+        skip_status=True, include_user_entities=False, count=200)
     for user in reversed(result['users']):
         desc = clean_description(user['description'])
-        if not found_last and recent[0] in desc:
-            found_last = True
-        elif found_last:
-            if user['protected'] or not user['verified']:
-                continue # respect privacy
-            elif blacklist.isOffensive(user['name']):
-                continue # no bad words in user name
-            elif blacklist.isOffensive(desc):
-                continue # no bad words in description
-            elif not 'en' in user['lang'] or isNotEnglish(desc):
-                continue # avoid non-english
-            elif isTooSimilar(desc, recent):
-                continue # avoid repeating recent tweets
-            elif isTooSimilar(desc, bios):
-                continue # avoid repeating found bios
-            elif len(desc) > 30:
-                bios.append(desc)
-
-    if found_last:
-        # new bios that haven't been tweeted
-        print(str(len(bios)) + " new bios found")
-        return bios
-    elif len(recent) > 0:
-        # most recent bio isn't in the results
-        return get_user_bios(twitter, [])
-    else:
-        # can't find a new bio
-        return bios
+        if user['protected'] or not user['verified']:
+            continue # respect privacy
+        elif blacklist.isOffensive(user['name']):
+            continue # no bad words in user name
+        elif blacklist.isOffensive(desc):
+            continue # no bad words in description
+        elif not 'en' in user['lang'] or isNotEnglish(desc):
+            continue # avoid non-english
+        elif isTooSimilar(desc, recent):
+            continue # avoid repeating recent tweets
+        elif isTooSimilar(desc, bios):
+            continue # avoid repeating found bios
+        elif len(desc) > 30:
+            bios.append(desc)
+    print(str(len(bios)) + " bios to tweet")
+    random.shuffle(bios)
+    return bios
 
 def postTweet(twitter, to_tweet):
     # post the given tweet
@@ -116,15 +106,10 @@ def postTweet(twitter, to_tweet):
     return to_tweet
 
 def waitToTweet():
-    # try to tweet every :20 & :50
+    # try to tweet every hour on :20
     now = datetime.datetime.now()
     wait = 60 - now.second
-    if now.minute < 20:
-        wait += (19 - now.minute) * 60
-    elif now.minute < 50:
-        wait += (49 - now.minute) * 60
-    else:
-        wait += (79 - now.minute) * 60
+    wait += ((79 - now.minute) % 60) * 60
     print "Wait " + str(wait) + " seconds for next tweet"
     time.sleep(wait)
 
@@ -138,14 +123,14 @@ if __name__ == "__main__":
     while True:
         try:
             waitToTweet()
-            if len(bios) == 0:
-                bios = get_user_bios(twitter, recent)
+            if len(bios) < 15:
+                bios = get_user_bios(twitter, bios, recent)
             if len(bios) > 0:
                 new_tweet = postTweet(twitter, bios.pop(0))
                 recent.insert(0, new_tweet)
             else:
                 print 'No new bios to tweet'
-            while len(recent) > 50:
+            while len(recent) > 200:
                 recent.pop()
         except:
             print "Error:", sys.exc_info()[0]
