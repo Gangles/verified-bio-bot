@@ -14,13 +14,13 @@ def connectTwitter():
      return Twython(config.twitter_key, config.twitter_secret,
                     config.access_token, config.access_secret)
 
-def get_last_tweet(twitter):
+def get_recent_tweets(twitter):
     # get the bio most recently tweeted by this bot
-    timeline = twitter.get_user_timeline(screen_name = config.bot_name)
-    if len(timeline) > 0:
-        return timeline[0]['text']
-    else:
-        return None
+    timeline = twitter.get_user_timeline(screen_name = config.bot_name, count=50)
+    recent = []
+    for tweet in timeline:
+        recent.append(tweet['text'])
+    return recent
 
 def clean_description(description):
     words = description.split()
@@ -46,7 +46,7 @@ def clean_description(description):
 
 def isTooSimilar(desc, bios):
     for bio in bios:
-        if Levenshtein.ratio(desc, bio) > 0.5:
+        if Levenshtein.ratio(desc, bio) > 0.4:
             return True
     return False
 
@@ -73,14 +73,14 @@ def isNotEnglish(desc):
 
     return False
 
-def get_user_bios(twitter, most_recent):
+def get_user_bios(twitter, recent):
     result = twitter.get_friends_list(screen_name='verified', skip_status=True,
                                         include_user_entities=False, count=200)
     bios = []
-    found_last = not most_recent
+    found_last = len(recent) == 0
     for user in reversed(result['users']):
         desc = clean_description(user['description'])
-        if not found_last and most_recent in desc:
+        if not found_last and recent[0] in desc:
             found_last = True
         elif found_last:
             if user['protected'] or not user['verified']:
@@ -91,18 +91,20 @@ def get_user_bios(twitter, most_recent):
                 continue # no bad words in description
             elif not 'en' in user['lang'] or isNotEnglish(desc):
                 continue # avoid non-english
+            elif isTooSimilar(desc, recent):
+                continue # avoid repeating recent tweets
             elif isTooSimilar(desc, bios):
-                continue # avoid repeating
-            elif len(desc) > 20:
+                continue # avoid repeating found bios
+            elif len(desc) > 30:
                 bios.append(desc)
 
     if found_last:
         # new bios that haven't been tweeted
         print(str(len(bios)) + " new bios found")
         return bios
-    elif most_recent:
+    elif len(recent) > 0:
         # most recent bio isn't in the results
-        return get_user_bios(twitter, None)
+        return get_user_bios(twitter, [])
     else:
         # can't find a new bio
         return bios
@@ -129,7 +131,7 @@ def waitToTweet():
 if __name__ == "__main__":
     # setup
     twitter = connectTwitter()
-    most_recent = get_last_tweet(twitter)
+    recent = get_recent_tweets(twitter)
     bios = []
 
     # main loop
@@ -137,11 +139,14 @@ if __name__ == "__main__":
         try:
             waitToTweet()
             if len(bios) == 0:
-                bios = get_user_bios(twitter, most_recent)
+                bios = get_user_bios(twitter, recent)
             if len(bios) > 0:
-                most_recent = postTweet(twitter, bios.pop(0))
+                new_tweet = postTweet(twitter, bios.pop(0))
+                recent.insert(0, new_tweet)
             else:
                 print 'No new bios to tweet'
+            while len(recent) > 50:
+                recent.pop()
         except:
             print "Error:", sys.exc_info()[0]
         time.sleep(10)
