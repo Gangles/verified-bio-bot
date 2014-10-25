@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 import blacklist
 import config
@@ -9,7 +10,7 @@ import string
 import sys
 import time
 import Levenshtein
-from twython import Twython
+from twython import Twython, TwythonError
 
 def connectTwitter():
      return Twython(config.twitter_key, config.twitter_secret,
@@ -74,6 +75,9 @@ def isNotEnglish(desc):
     # Arabic characters
     if re.search(u'[\u0600-\u06FF]', desc): return True
 
+    # Turkish characters
+    if re.search(u'[ğüşöçİĞÜŞÖÇ]', desc): return True
+
     return False
 
 def get_user_bios(twitter, bios, recent):
@@ -93,7 +97,7 @@ def get_user_bios(twitter, bios, recent):
             continue # avoid repeating recent tweets
         elif isTooSimilar(desc, bios):
             continue # avoid repeating found bios
-        elif len(desc) > 30:
+        elif len(desc) > 30 and len(desc.split()) > 5:
             bios.append(desc)
     print(str(len(bios)) + " bios to tweet")
     random.shuffle(bios)
@@ -101,8 +105,8 @@ def get_user_bios(twitter, bios, recent):
 
 def postTweet(twitter, to_tweet):
     # post the given tweet
+    print "Posting tweet: " + to_tweet.encode('ascii', 'ignore')
     twitter.update_status(status=to_tweet)
-    print "Posted tweet: " + to_tweet.encode('ascii', 'ignore')
     return to_tweet
 
 def waitToTweet():
@@ -132,6 +136,8 @@ if __name__ == "__main__":
                 print 'No new bios to tweet'
             while len(recent) > 200:
                 recent.pop()
+        except TwythonError as e:
+            print "Twython Error:", e
         except:
             print "Error:", sys.exc_info()[0]
         time.sleep(10)
