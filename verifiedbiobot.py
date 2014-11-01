@@ -4,6 +4,7 @@
 import blacklist
 import config
 import datetime
+import logging
 import random
 import re
 import string
@@ -27,6 +28,7 @@ def get_recent_tweets(twitter):
     return recent
 
 def clean_description(description):
+    if not description: return ''
     words = description.split()
     link = re.compile('https?:', re.IGNORECASE)
     email = re.compile('[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}', re.IGNORECASE)
@@ -137,7 +139,7 @@ if __name__ == "__main__":
             while len(recent) > 200:
                 recent.pop()
         except TwythonError as e:
-            print "Twython Error:", e
+            logging.exception("Twython Error")
         except:
-            print "Error:", sys.exc_info()[0]
+            logging.exception(sys.exc_info()[0])
         time.sleep(10)
