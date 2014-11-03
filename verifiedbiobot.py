@@ -87,7 +87,9 @@ def get_user_bios(twitter, bios, recent):
         skip_status=True, include_user_entities=False, count=200)
     for user in reversed(result['users']):
         desc = clean_description(user['description'])
-        if user['protected'] or not user['verified']:
+        if not desc or len(desc) < 30 or len(desc.split()) < 6:
+            continue # enforce length
+        elif user['protected'] or not user['verified']:
             continue # respect privacy
         elif blacklist.isOffensive(user['name']):
             continue # no bad words in user name
@@ -99,8 +101,8 @@ def get_user_bios(twitter, bios, recent):
             continue # avoid repeating recent tweets
         elif isTooSimilar(desc, bios):
             continue # avoid repeating found bios
-        elif len(desc) > 30 and len(desc.split()) > 5:
-            bios.append(desc)
+        else:
+            bios.append(desc) # valid description
     print(str(len(bios)) + " bios to tweet")
     random.shuffle(bios)
     return bios
