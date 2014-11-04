@@ -80,6 +80,9 @@ def isNotEnglish(desc):
     # Turkish characters
     if re.search(u'[ğüşöçİĞÜŞÖÇ]', desc): return True
 
+    # Polish characters
+    if re.search(u'[łśźżóńęąŁŚŹŻÓŃĘĄ]', desc): return True
+
     return False
 
 def get_user_bios(twitter, bios, recent):
