@@ -11,6 +11,7 @@ import string
 import sys
 import time
 import Levenshtein
+import guess_language as lang
 from twython import Twython, TwythonError
 
 def connectTwitter():
@@ -82,6 +83,9 @@ def isNotEnglish(desc):
 
     # Polish characters
     if re.search(u'[łśźżóńęąŁŚŹŻÓŃĘĄ]', desc): return True
+
+    # Use trigrams to detect language
+    if not 'en' in lang.guessLanguage(desc): return True
 
     return False
 
