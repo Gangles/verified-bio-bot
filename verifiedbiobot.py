@@ -40,6 +40,8 @@ def clean_description(description):
             words[i] = '' # remove links
         elif re.search(email, word):
             words[i] = '' # remove emails
+        elif '[at]' in word or '[dot]' in word:
+            words[i] = '' # remove obfuscated emails
         elif re.search(phone, word):
             words[i] = '' # remove phone numbers
         else:
