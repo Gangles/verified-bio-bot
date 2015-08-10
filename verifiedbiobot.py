@@ -91,9 +91,10 @@ def isNotEnglish(desc):
 
     return False
 
-def get_user_bios(twitter, bios, recent):
+def get_user_bios(twitter, recent):
     result = twitter.get_friends_list(screen_name='verified',
         skip_status=True, include_user_entities=False, count=200)
+    bios = []
     for user in reversed(result['users']):
         desc = clean_description(user['description'])
         if not desc or len(desc) < 30 or len(desc.split()) < 6:
@@ -140,7 +141,7 @@ if __name__ == "__main__":
         # collect bios for posting
         twitter = connectTwitter()
         recent = get_recent_tweets(twitter)
-        bios = get_user_bios(twitter, bios, recent)
+        bios = get_user_bios(twitter, recent)
 
         # if a new bio exists, post it
         if len(bios) > 0:
