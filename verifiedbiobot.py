@@ -122,35 +122,41 @@ def postTweet(twitter, to_tweet):
     twitter.update_status(status=to_tweet)
     return to_tweet
 
-def waitToTweet():
+def timeToWait():
     # try to tweet every hour on :20
     now = datetime.datetime.now()
     wait = 60 - now.second
     wait += ((79 - now.minute) % 60) * 60
-    print "Wait " + str(wait) + " seconds for next tweet"
-    time.sleep(wait)
+    return wait
 
 if __name__ == "__main__":
-    # setup
-    twitter = connectTwitter()
-    recent = get_recent_tweets(twitter)
-    bios = []
+    # heroku scheduler runs every 10 minutes
+    wait = timeToWait()
+    print "Wait " + str(wait) + " seconds for next tweet"
+    if wait > 10 * 60:
+        sys.exit(0)
 
-    # main loop
-    while True:
-        try:
-            waitToTweet()
-            if len(bios) < 15:
-                bios = get_user_bios(twitter, bios, recent)
-            if len(bios) > 0:
-                new_tweet = postTweet(twitter, bios.pop(0))
-                recent.insert(0, new_tweet)
-            else:
-                print 'No new bios to tweet'
-            while len(recent) > 200:
-                recent.pop()
-        except TwythonError as e:
-            logging.exception("Twython Error")
-        except:
-            logging.exception(sys.exc_info()[0])
-        time.sleep(10)
+    try:
+        # collect bios for posting
+        twitter = connectTwitter()
+        recent = get_recent_tweets(twitter)
+        bios = get_user_bios(twitter, bios, recent)
+
+        # if a new bio exists, post it
+        if len(bios) > 0:
+            time.sleep(min(wait, timeToWait()))
+            new_tweet = postTweet(twitter, bios.pop(0))
+        else:
+            print 'No new bios to tweet'
+        sys.exit(0)
+    except SystemExit as e:
+        # working as intended, exit normally
+        sys.exit(e)
+    except TwythonError as e:
+        # error interacting with Twitter
+        logging.exception("Twython Error")
+        sys.exit(1)
+    except:
+        # some other type of error
+        logging.exception(sys.exc_info()[0])
+        sys.exit(1)
